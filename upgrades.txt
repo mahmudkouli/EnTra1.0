@@ -1,0 +1,8 @@
+# Pending Updates
+
+#1 add functions for MACD, RSI, CH_OSC that classify them as BUY, HOLD OR SELL
+#2 move ch_osc to the PA website
+#3 write the conditions below into a function, use apply to create a column and label it buy/sell/hold, see example below
+#4 change the file naming and hierarchy in PA to make it more organized
+#5 modularize the code into dependencies and make it callable from a main.py script
+#6 create the initial layout of the website
