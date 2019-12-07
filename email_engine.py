@@ -25,7 +25,7 @@ def email_connection(email, msg, data):
 
     s = smtplib.SMTP('smtp.gmail.com', 587)
     s.starttls()
-    s.login('entra.daily@gmail.com', 'Pomidor12')
+    s.login('XYZ_user@gmail.com', 'XYZ_password')
     msg['From']= email
     msg['To']= 'mahmudkouli@gmail.com'
     #msg['CC']='ksenia.ter@gmail.com'
