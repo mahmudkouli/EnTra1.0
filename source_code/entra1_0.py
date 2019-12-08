@@ -116,7 +116,7 @@ def main():
     connection = connect_to_tiingo()
 
     stacked = pd.DataFrame(columns=['date','close','rsi','macd_diff_signal','macd','signal_line', 'ticker','volume'])
-    stocks = pd.read_excel('../unit_test/ticker_data.xlsx')
+    stocks = pd.read_excel('/Users/Mahmud/Desktop/stock_market_tracker/prod_env/EnTra/ticker_data.xlsx')
     for i in stocks[stocks['Industry']!='Precious Metals']['Ticker']:
         try:
             df = get_stock_data(i, connection)
@@ -131,7 +131,7 @@ def main():
             print(str(i), ' encountered error, moving to next stock')
             pass
 
-    return stacked.to_csv('../unit_test/daily_updated_prices.csv', index=False)
+    return stacked.to_csv('/Users/Mahmud/Desktop/stock_market_tracker/prod_env/EnTra/daily_updated_prices.csv', index=False)
 
 if __name__ == "__main__":
     main()
