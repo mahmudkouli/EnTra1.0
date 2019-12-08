@@ -9,10 +9,10 @@ def volume(df):
     return merged
 
 def main():
-    df = pd.read_csv('/Users/Mahmud/Desktop/stock_market_tracker/prod_env/EnTra/daily_updated_prices.csv').round({'close':2, 'rsi':2, 'macd_diff_signal':2})    
+    df = pd.read_csv('../unit_test/daily_updated_prices.csv').round({'close':2, 'rsi':2, 'macd_diff_signal':2})    
     new_df = volume(df)
 
-    return new_df.to_csv('/Users/Mahmud/Desktop/stock_market_tracker/prod_env/EnTra/daily_updated_prices.csv', index = False)
+    return new_df.to_csv('../unit_test/daily_updated_prices.csv', index = False)
 
 if __name__ == '__main__':
     main()

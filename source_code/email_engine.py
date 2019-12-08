@@ -3,9 +3,15 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import pandas as pd
 
-def data_to_send():
-    df = pd.read_csv('/Users/Mahmud/Desktop/stock_market_tracker/prod_env/EnTra/daily_updated_prices.csv').round({'close':2, 'rsi':2, 'macd_diff_signal':2})
-    stocks = pd.read_excel('/Users/Mahmud/Desktop/stock_market_tracker/prod_env/EnTra/ticker_data.xlsx')
+def volume(df):
+    
+    df_volume_mean = pd.DataFrame(df.groupby('ticker').agg('mean')['volume'].astype('int')).rename(columns={'volume':'daily mean volume'})
+    
+    merged = pd.merge(df, df_volume_mean, how='inner', left_on='ticker', right_index=True)
+    
+    return merged
+
+def data_to_send(df, stocks):
     merged = pd.merge(df,stocks,how='left',left_on = 'ticker', right_on='Ticker')
     merged = merged[['ticker', 'Company Name', 'Industry', 'date', 'close', 'rsi', 'macd_diff_signal','daily mean volume', 'action_signal']]
     merged = merged.rename(columns = {'ticker':'Ticker', 'date':'Date', 'close':'Close', 'rsi':'RSI', 'macd_diff_signal':'MACD', 'action_signal':'Action'})
@@ -25,7 +31,7 @@ def email_connection(email, msg, data):
 
     s = smtplib.SMTP('smtp.gmail.com', 587)
     s.starttls()
-    s.login('XYZ_user@gmail.com', 'XYZ_password')
+    s.login('entra.daily@gmail.com', 'Yumurta12')
     msg['From']= email
     msg['To']= 'mahmudkouli@gmail.com'
     #msg['CC']='ksenia.ter@gmail.com'
@@ -39,6 +45,8 @@ def email_connection(email, msg, data):
     s.quit()
 
 def main():
+    df = pd.read_csv('../unit_test/daily_updated_prices.csv').round({'close':2, 'rsi':2, 'macd_diff_signal':2})
+	stocks = pd.read_excel('../unit_test/ticker_data.xlsx')	
     email = 'entra.daily@gmail.com'
     msg = MIMEMultipart()
 
