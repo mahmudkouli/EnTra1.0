@@ -31,7 +31,7 @@ def email_connection(email, msg, data):
 
     s = smtplib.SMTP('smtp.gmail.com', 587)
     s.starttls()
-    s.login('entra.daily@gmail.com', 'Yumurta12')
+    s.login('ABC@gmail.com', 'XYZ')
     msg['From']= email
     msg['To']= 'mahmudkouli@gmail.com'
     #msg['CC']='ksenia.ter@gmail.com'
@@ -45,12 +45,15 @@ def email_connection(email, msg, data):
     s.quit()
 
 def main():
+
     df = pd.read_csv('../unit_test/daily_updated_prices.csv').round({'close':2, 'rsi':2, 'macd_diff_signal':2})
-	stocks = pd.read_excel('../unit_test/ticker_data.xlsx')	
+	
+    df_filtered = volume(df)
+    stocks = pd.read_excel('../unit_test/ticker_data.xlsx')
     email = 'entra.daily@gmail.com'
     msg = MIMEMultipart()
 
-    data = data_to_send()[['Ticker', 'Company Name', 'Industry', 'Date', 'Close', 'RSI', 'MACD','Action']]
+    data = data_to_send(df_filtered, stocks)[['Ticker', 'Company Name', 'Industry', 'Date', 'Close', 'RSI', 'MACD','Action']]
     week_no = datetime.datetime.today().weekday()
 
     if week_no != 5 or week_no != 4:
