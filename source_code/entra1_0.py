@@ -112,6 +112,30 @@ def action_signal_assigner(df):
                                     'Bearish', 'No signal'))   
     return df
 
+def volume(df):
+    
+    df_volume_mean = pd.DataFrame(df.groupby('ticker').agg('mean')['volume'].astype('int')).rename(columns={'volume':'daily mean volume'})
+  
+    merged = pd.merge(df, df_volume_mean, how='inner', left_on='ticker', right_index=True)
+    
+    return merged
+
+def data_to_send(df, stocks):
+    merged = pd.merge(df,stocks,how='left',left_on = 'ticker', right_on='Ticker')
+    merged = merged[['ticker', 'Company Name', 'Industry', 'date', 'close', 'rsi', 'macd_diff_signal','daily mean volume_x', 'action_signal']]
+    merged = merged.rename(columns = {'ticker':'Ticker', 'date':'Date', 'close':'Close', 'rsi':'RSI', 'macd_diff_signal':'MACD', 'action_signal':'Action'})
+
+
+    daily_df = merged[(merged['Date'] == merged.Date.max()) & 
+                      (merged['RSI']<35) & 
+                      (merged['Close']>10) & 
+                      (merged['daily mean volume_x'] > 500000) &
+                      (merged['Action']!='No signal')].sort_values(by=['RSI','MACD']) 
+                      
+    daily_df = daily_df[['Ticker', 'Company Name', 'Industry', 'Date', 'Close', 'RSI', 
+                         'MACD','daily mean volume_x','Action']]
+    return daily_df
+
 def main():
     connection = connect_to_tiingo()
 
@@ -125,13 +149,13 @@ def main():
             df = df.iloc[:, :-1]
             df = set_above_below_indicator(df)
             df = action_signal_assigner(df)
+            df = volume(df)
+            df = data_to_send(df, stocks)
             stacked = stacked.append(df)
             stacked['date'] = stacked.index
         except:
             print(str(i), ' encountered error, moving to next stock')
             pass
 
-    return stacked.to_csv('../unit_test/daily_updated_prices.csv', index=False)
-
-if __name__ == "__main__":
-    main()
+    return stacked
+    
