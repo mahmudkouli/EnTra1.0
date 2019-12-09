@@ -1,7 +1,6 @@
-import email, smtplib, datetime
+import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-import pandas as pd
 
 def email_object(data, user_name):
 	msg = MIMEMultipart()
@@ -14,4 +13,3 @@ def email_object(data, user_name):
 	msg.attach(MIMEText(data.to_html(), 'html'))
 
 	return msg
-	
