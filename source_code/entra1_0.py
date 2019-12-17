@@ -64,6 +64,7 @@ def rsi(df):
     rsi_raw = roll_up2/roll_down2
     rsi = 100.0 - (100.0 / (1.0 + rsi_raw))
     df['rsi'] = rsi
+
     return df[['date', 'close', 'macd', 'signal_line', 'macd_diff_signal','rsi', 'ticker','volume']]
 
 def set_above_below_indicator(df):
@@ -122,40 +123,45 @@ def volume(df):
 
 def data_to_send(df, stocks):
     merged = pd.merge(df,stocks,how='left',left_on = 'ticker', right_on='Ticker')
-    merged = merged[['ticker', 'Company Name', 'Industry', 'date', 'close', 'rsi', 'macd_diff_signal','daily mean volume_x', 'action_signal']]
+    merged = merged[['ticker', 'Company Name', 'Industry', 'date', 'close', 'rsi', 'macd_diff_signal','daily mean volume', 'action_signal']]
     merged = merged.rename(columns = {'ticker':'Ticker', 'date':'Date', 'close':'Close', 'rsi':'RSI', 'macd_diff_signal':'MACD', 'action_signal':'Action'})
+    merged = merged.loc[:,~merged.columns.duplicated()]
 
-
-    daily_df = merged[(merged['Date'] == merged.Date.max()) & 
-                      (merged['RSI']<35) & 
-                      (merged['Close']>10) & 
-                      (merged['daily mean volume_x'] > 500000) &
-                      (merged['Action']!='No signal')].sort_values(by=['RSI','MACD']) 
+    daily_df = merged[(merged['Date'] == merged.Date.max()) &
+    (merged['RSI']<35) & 
+    (merged['Close']>10) & 
+    (merged['daily mean volume'] > 500000) &
+    (merged['Action']!='No signal')].sort_values(by=['RSI','MACD']) 
+    
                       
     daily_df = daily_df[['Ticker', 'Company Name', 'Industry', 'Date', 'Close', 'RSI', 
-                         'MACD','daily mean volume_x','Action']]
+                         'MACD','daily mean volume','Action']]
+    
     return daily_df
 
 def main():
     connection = connect_to_tiingo()
 
-    stacked = pd.DataFrame(columns=['date','close','rsi','macd_diff_signal','macd','signal_line', 'ticker','volume'])
+    stacked = pd.DataFrame(columns=['Ticker', 'Company Name', 'Industry', 'Date', 'Close', 'RSI', 
+                         'MACD','daily mean volume','Action'])
     stocks = pd.read_excel('../unit_test/ticker_data.xlsx')
+
     for i in stocks[stocks['Industry']!='Precious Metals']['Ticker']:
+        print('evaluating stock, ', i)
         try:
             df = get_stock_data(i, connection)
             df = macd(df)
             df = rsi(df)
-            df = df.iloc[:, :-1]
             df = set_above_below_indicator(df)
             df = action_signal_assigner(df)
             df = volume(df)
             df = data_to_send(df, stocks)
             stacked = stacked.append(df)
             stacked['date'] = stacked.index
+
         except:
             print(str(i), ' encountered error, moving to next stock')
             pass
 
     return stacked
-    
+
