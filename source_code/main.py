@@ -1,6 +1,6 @@
 
 import entra1_0
-import email_engine 
+from email_engine import email_object
 import datetime, email, smtplib
 
 def main():
@@ -30,3 +30,7 @@ def main():
 
 	else:
 	    pass
+
+	return input_data.to_csv('main.csv')
+
+main()
