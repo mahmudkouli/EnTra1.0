@@ -16,7 +16,7 @@ def main():
 
 	week_no = datetime.datetime.today().weekday()
 
-	if week_no != 5 or week_no != 4:
+	if week_no != 4 or week_no != 5:
 		s = smtplib.SMTP('smtp.gmail.com', 587)
 		s.starttls()
 		s.login(user_name, psw)
@@ -34,3 +34,4 @@ def main():
 	return input_data.to_csv('main.csv')
 
 main()
+
