@@ -27,66 +27,52 @@ def get_stock_data(ticker, tiingo_conn, startDate=datetime.datetime.now().date()
 
 def macd(df):
     '''This function builds MACD and the 9 day Signal line.
-
     Parameters:
     -------------
     plot: set to "no" by default. If "yes", outputs a graph of MACD and Signal line
-
     Returns:
     -------------
     DataFrame of MACD and Signal Line
     '''
-
     df['ema_price_12'] = df['close'].ewm(span = 12, adjust = True, ignore_na=True).mean()
     df['ema_price_26'] = df['close'].ewm(span = 26, adjust = True, ignore_na=True).mean()
     df['macd'] = df['ema_price_12'] - df['ema_price_26']
     df['signal_line'] = df['macd'].ewm(span = 9, adjust = True, ignore_na=True).mean()
     df['macd_diff_signal'] = df['macd'] - df['signal_line']
-
     return df[['date', 'close', 'macd', 'signal_line','macd_diff_signal', 'ticker','volume']]
 
 def rsi(df):
     '''This function builds Relative Strength Indicator.
-
     Returns:
     -------------
     DataFrame of stock prices and RSI
     '''
     delta = df['close'].diff()
-
     up, down = delta.copy(), delta.copy()
     up[up < 0] = 0
     down[down > 0] = 0
-
     roll_up2 = up.rolling(14).mean()
     roll_down2 = down.abs().rolling(14).mean()
-
     rsi_raw = roll_up2/roll_down2
     rsi = 100.0 - (100.0 / (1.0 + rsi_raw))
     df['rsi'] = rsi
-
     return df[['date', 'close', 'macd', 'signal_line', 'macd_diff_signal','rsi', 'ticker','volume']]
 
 def set_above_below_indicator(df):
     # find the day over day change in macd_diff_signal, first difference
     df['delta'] = df['macd_diff_signal'].diff()
-
     # find the second difference, to measure % increase/decrease in day over day delta
     #.....
-
     # find global min
     global_min = df['macd_diff_signal'].min()
-
     # above vs below the global min
     df['gl_min_ab_be'] = np.where(df['macd_diff_signal']<=global_min,'below','above')
-
     return df
 
 def chaikin_oscillator(data, periods_short=3, periods_long=10, high_col='high',
                        low_col='low', close_col='close', vol_col='volume'):
     ac = pd.Series([])
     val_last = 0
-    
     for index, row in data.iterrows():
         if row[high_col] != row[low_col]:
             val = val_last + ((row[close_col] - row[low_col]) - (row[high_col] - row[close_col])) / (row[high_col] - row[low_col]) * row[vol_col]
@@ -94,11 +80,9 @@ def chaikin_oscillator(data, periods_short=3, periods_long=10, high_col='high',
             val = val_last
         ac.set_value(index, val)
     val_last = val
-
     ema_long = ac.ewm(ignore_na=False, min_periods=0, com=periods_long, adjust=True).mean()
     ema_short = ac.ewm(ignore_na=False, min_periods=0, com=periods_short, adjust=True).mean()
     data['ch_osc'] = ema_short - ema_long
-
     return data
 
 def action_signal_assigner(df):
@@ -107,18 +91,15 @@ def action_signal_assigner(df):
     #1.2a: macd_diff below 0, below global min, declined last day (BUY / PAY ATTENTION)
     #1.2b: macd_diff below 0, below global min, increased last day (SELL / HOLD)
     df['action_signal'] = np.where((((df['gl_min_ab_be'] == 'above') & (df['delta'] < 0) & (df['rsi'] < 30) & (df['macd_diff_signal'] < 0)) | 
-                                   ((df['gl_min_ab_be'] == 'below') & (df['delta'] < 0) & (df['rsi'] < 30)& (df['macd_diff_signal'] < 0))), 'Bullish',                                   
+                                   ((df['gl_min_ab_be'] == 'below') & (df['delta'] < 0) & (df['rsi'] < 30)& (df['macd_diff_signal'] < 0))), 'Buy',                                   
                                    np.where(((df['gl_min_ab_be'] == 'above') & (df['delta'] > 0) & (df['rsi'] < 30) & (df['macd_diff_signal'] < 0)) | 
                                    ((df['gl_min_ab_be'] == 'below') & (df['delta'] > 0) & (df['rsi'] < 30) & (df['macd_diff_signal'] < 0)), 
-                                    'Bearish', 'No signal'))   
+                                    'Sell', 'No signal'))   
     return df
 
 def volume(df):
-    
     df_volume_mean = pd.DataFrame(df.groupby('ticker').agg('mean')['volume'].astype('int')).rename(columns={'volume':'daily mean volume'})
-  
     merged = pd.merge(df, df_volume_mean, how='inner', left_on='ticker', right_index=True)
-    
     return merged
 
 def data_to_send(df, stocks):
@@ -126,17 +107,13 @@ def data_to_send(df, stocks):
     merged = merged[['ticker', 'Company Name', 'Industry', 'date', 'close', 'rsi', 'macd_diff_signal','daily mean volume', 'action_signal']]
     merged = merged.rename(columns = {'ticker':'Ticker', 'date':'Date', 'close':'Close', 'rsi':'RSI', 'macd_diff_signal':'MACD', 'action_signal':'Action'})
     merged = merged.loc[:,~merged.columns.duplicated()]
-
     daily_df = merged[(merged['Date'] == merged.Date.max()) &
     (merged['RSI']<35) & 
     (merged['Close']>10) & 
     (merged['daily mean volume'] > 500000) &
-    (merged['Action']!='No signal')].sort_values(by=['RSI','MACD']) 
-    
-                      
+    (merged['Action']!='No signal')].sort_values(by=['RSI','MACD'])                       
     daily_df = daily_df[['Ticker', 'Company Name', 'Industry', 'Date', 'Close', 'RSI', 
                          'MACD','daily mean volume','Action']]
-    
     return daily_df
 
 def main():
@@ -164,4 +141,3 @@ def main():
             pass
 
     return stacked
-
