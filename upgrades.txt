@@ -3,5 +3,4 @@
 #1 move ch_osc to the PA website
 #2 create the initial layout of the website
 #3 create a static list of dates when companies announce quarterly results, because they affect stock trading more than technical indicators on those days
-#4 filter out alerts on weekends
-#5 reorganize file structure on PA
+#4 add a fast way to request a stock's technical chart
