@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import matplotlib.backends.backend_pdf
 import pandas as pd, datetime as dt
-import numpy as np
+import numpy as np, os
 
 def get_data():
     historical_df = pd.read_csv('../unit_test/daily_prices.csv')
@@ -56,10 +56,24 @@ def plot_rsi_indicator(df):
 
 def save_as_pdf(df, ticker_name):
     today_date = str(dt.date.today())
-    
+
     pdf = matplotlib.backends.backend_pdf.PdfPages('../daily_reports/'+ticker_name+'_'+today_date+'.pdf')
     pdf.savefig(plot_macd_indicator(df))
     pdf.savefig(plot_rsi_indicator(df))
     pdf.close()
+
+def remove_daily_reports():
+    attachments = os.listdir('../daily_reports')
+
+    for i in attachments:
+        os.remove('../daily_reports/'+i)
+
+def main():
+            
+    historical_df = get_data()
+    
+    for i in historical_df['ticker'].drop_duplicates():
+        filtered_df = historical_df[historical_df['ticker']==i]
+        save_as_pdf(filtered_df, i)
 
 
