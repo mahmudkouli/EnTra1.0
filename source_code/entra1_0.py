@@ -133,7 +133,7 @@ def main():
     for i in stocks[stocks['Industry']!='Precious Metals']['Ticker']:
         print('evaluating stock, ', i)
         try:
-            df = get_stock_data('BCE', connection)
+            df = get_stock_data(i, connection)
             df = macd(df)
             df = rsi(df)
             df = set_above_below_indicator(df)
