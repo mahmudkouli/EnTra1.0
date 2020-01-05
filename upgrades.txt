@@ -4,3 +4,5 @@
 #2 create the initial layout of the website
 #3 create a static list of dates when companies announce quarterly results, because they affect stock trading more than technical indicators on those days
 #4 add a fast way to request a stock's technical chart
+#5 add each stocks RSI and MACD indicators attached as a PDF to the daily email
+#6 fix the column naming in the daily email
