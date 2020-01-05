@@ -1,6 +1,7 @@
 import pandas as pd, numpy as np
 import tiingo, datetime
 import warnings
+import matplotlib.pyplot as plt
 
 warnings.filterwarnings('ignore')
 
@@ -23,7 +24,7 @@ def get_stock_data(ticker, tiingo_conn, startDate=datetime.datetime.now().date()
     stock_data['date'] = pd.to_datetime(stock_data['date'],format='%Y-%m-%dT%H:%M:%S.%fz')
     stock_data = stock_data.reset_index().set_index(stock_data['date'])
     stock_data['ticker'] = ticker
-    return stock_data[['date', 'close', 'volume', 'ticker','volume']]
+    return stock_data[['date', 'close', 'volume', 'ticker']]
 
 def macd(df):
     '''This function builds MACD and the 9 day Signal line.
@@ -105,39 +106,51 @@ def volume(df):
 def data_to_send(df, stocks):
     merged = pd.merge(df,stocks,how='left',left_on = 'ticker', right_on='Ticker')
     merged = merged[['ticker', 'Company Name', 'Industry', 'date', 'close', 'rsi', 'macd_diff_signal','daily mean volume', 'action_signal']]
-    merged = merged.rename(columns = {'ticker':'Ticker', 'date':'Date', 'close':'Close', 'rsi':'RSI', 'macd_diff_signal':'MACD', 'action_signal':'Action'})
+    merged = merged.rename(columns = {'ticker':'Ticker', 'date':'Date', 'close':'Close', 'rsi':'RSI', 'macd_diff_signal':'MACD', 
+                                      'action_signal':'Action', 'daily mean volume':'Daily Mean Volume'})
     merged = merged.loc[:,~merged.columns.duplicated()]
     daily_df = merged[(merged['Date'] == merged.Date.max()) &
     (merged['RSI']<35) & 
     (merged['Close']>10) & 
-    (merged['daily mean volume'] > 500000) &
+    (merged['Daily Mean Volume'] > 500000) &
     (merged['Action']!='No signal')].sort_values(by=['RSI','MACD'])                       
     daily_df = daily_df[['Ticker', 'Company Name', 'Industry', 'Date', 'Close', 'RSI', 
-                         'MACD','daily mean volume','Action']]
+                         'MACD','Daily Mean Volume','Action']]
     return daily_df
 
 def main():
     connection = connect_to_tiingo()
 
-    stacked = pd.DataFrame(columns=['Ticker', 'Company Name', 'Industry', 'Date', 'Close', 'RSI', 
-                         'MACD','daily mean volume','Action'])
+    stacked_data_to_send = pd.DataFrame(columns=['Ticker', 'Company Name', 'Industry', 'Date', 'Close', 'RSI', 
+                         'MACD','Daily Mean Volume','Action'])
+        
+    stacked_historical_data = pd.DataFrame(columns=['date', 'close', 'macd', 'signal_line', 'macd_diff_signal', 'rsi',
+       'ticker', 'volume', 'delta', 'gl_min_ab_be', 'action_signal',
+       'daily mean volume'])
+        
     stocks = pd.read_excel('../unit_test/ticker_data.xlsx')
 
     for i in stocks[stocks['Industry']!='Precious Metals']['Ticker']:
         print('evaluating stock, ', i)
         try:
-            df = get_stock_data(i, connection)
+            df = get_stock_data('BCE', connection)
             df = macd(df)
             df = rsi(df)
             df = set_above_below_indicator(df)
             df = action_signal_assigner(df)
             df = volume(df)
-            df = data_to_send(df, stocks)
-            stacked = stacked.append(df)
-            stacked['date'] = stacked.index
+            stacked_historical_data = stacked_historical_data.append(df)
+            
+            modified_data_to_send = data_to_send(df, stocks)
+            stacked_data_to_send = stacked_data_to_send.append(modified_data_to_send)
+            stacked_data_to_send['Date'] = stacked_data_to_send.index
 
         except:
             print(str(i), ' encountered error, moving to next stock')
             pass
+        
+    stacked_historical_data = stacked_historical_data[stacked_historical_data['ticker'].isin(list(stacked_data_to_send['Ticker'].drop_duplicates()))]
+    
+    stacked_historical_data.to_csv('../unit_test/daily_prices.csv')
 
-    return stacked
+    return stacked_data_to_send
