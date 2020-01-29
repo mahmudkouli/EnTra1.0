@@ -1,8 +1,9 @@
-import pandas as pd
-import matplotlib.pyplot as plt
-
-
-df = pd.read_csv('/Users/mkoul/Desktop/apple.csv')
+from pandas import read_csv
+import datetime
+from sklearn.linear_model import LinearRegression
+from matplotlib import pyplot
+import numpy
+ 
 
 #df.head()
 #df.tail()
@@ -42,16 +43,11 @@ def macd(df):
     return df[['Date', 'Close', 'macd', 'signal_line','macd_diff_signal','Volume', 'RSI','detrended_price_adj']]
 
 
-from pandas import read_csv
-from pandas import datetime
-from sklearn.linear_model import LinearRegression
-from matplotlib import pyplot
-import numpy
- 
+
 def parser(x):
 	return datetime.strptime('190'+x, '%Y-%m')
  
-series = read_csv('apple.csv', header=0, parse_dates=[0], index_col=0, squeeze=True)
+series = read_csv('POCs/RL/apple.csv', header=0, parse_dates=[0], index_col=0, squeeze=True)
 series = series.reset_index()
 # fit linear model
 
@@ -92,17 +88,35 @@ df.plot('Date', ['detrended_price_adj','Close']) # comparing the detrended adjus
 ## define the update the method 
 
 
+def state_action_pair():
+
+    states = ['RSI<25', 'RSI<50','RSI<75']
+    
+    q_table = pd.DataFrame(states).rename(columns={0:'states'})
+    
+    q_table['B'],q_table['S'],q_table['H'] = 0,0,0
+
+    return q_table
 
 
 
+def get_reward(df, i, j):
 
-
-
-
-
-
-
-
-
-
-
+    if df[df.index==i]['detrended_price_adj'].values[0] > df[df.index==j]['detrended_price_adj'].values[0]:
+        return 1
+    elif df[df.index==i]['detrended_price_adj'].values[0] > df[df.index==j]['detrended_price_adj'].values[0]:
+        return 0
+    else:
+        return -1
+            
+#    
+#for i in df.index[1:10]:
+#    j = i-1
+#    print(get_reward(df, i, j))
+#        
+    
+def update_q_values():
+    """
+    A function that updates the q values using the bellman equation and replaces the q_0 from the initial q-table
+    """
+        
