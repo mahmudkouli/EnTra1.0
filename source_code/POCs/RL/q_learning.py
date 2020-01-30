@@ -1,8 +1,9 @@
-from pandas import read_csv
+import pandas as pd
 import datetime
 from sklearn.linear_model import LinearRegression
 from matplotlib import pyplot
 import numpy
+import random
  
 
 #df.head()
@@ -43,11 +44,10 @@ def macd(df):
     return df[['Date', 'Close', 'macd', 'signal_line','macd_diff_signal','Volume', 'RSI','detrended_price_adj']]
 
 
-
 def parser(x):
 	return datetime.strptime('190'+x, '%Y-%m')
  
-series = read_csv('POCs/RL/apple.csv', header=0, parse_dates=[0], index_col=0, squeeze=True)
+series = pd.read_csv('POCs/RL/apple.csv', header=0, parse_dates=[0], index_col=0, squeeze=True)
 series = series.reset_index()
 # fit linear model
 
@@ -79,18 +79,27 @@ df = macd(df)
 df.plot('Date', ['detrended_price_adj','RSI']) # correlation makes sense still
 df.plot('Date', ['detrended_price_adj','Close']) # comparing the detrended adjusted price to the closing price
 
+# limit the df to work with manageable dataset for debugging
+df = df.iloc[15:265].reset_index()
 
+"""DONE"""
 ## clean up the code above to spit out clean data that the RL agent can work with
 ## define the states
 ## define the actions
 ## define the reward function
+## define a function to identify the state the agent is
+## define a function that lets the agent choose an action
 ## define the q-matrix and how to calculate it
 ## define the update the method 
 
+"""TO BE COMPLETED"""
+## change reward function from -1, 0 and 1 to a different measure
+## add more states based on other indicators
+## add exploration vs. exploitation rate instead of randomly choosing at step 1 then basing off q-value
 
 def state_action_pair():
 
-    states = ['RSI<25', 'RSI<50','RSI<75']
+    states = ['RSI<25', 'RSI<50','RSI<75', 'RSI<100']
     
     q_table = pd.DataFrame(states).rename(columns={0:'states'})
     
@@ -98,25 +107,79 @@ def state_action_pair():
 
     return q_table
 
+q_table = state_action_pair()
+q_table = q_table.set_index('states')    
 
+def get_current_state(df, i):
+    rsi = df.iloc[i]['RSI']
 
+    if rsi < 25:
+        rsi_state = 'RSI<25'
+    elif rsi < 50:
+        rsi_state = 'RSI<50'
+    elif rsi < 75:
+        rsi_state = 'RSI<75'
+    elif rsi < 100:
+        rsi_state = 'RSI<100'
+    else:
+        print('rsi unknown')
+    
+    return rsi_state
+
+def exploration_vs_exploitation():
+    """Will return whether the agent exploits the q-table or explores new actions at this step"""
+    
+    return None
+
+def choose_action(q_table, rsi_state):
+    
+    if q_table.loc[rsi_state]['B']==q_table.loc[rsi_state]['H']==q_table.loc[rsi_state]['S']:
+        action_choice = random.choice(['B','H','S'])
+        print('chosen randomly ', action_choice)
+
+    else:
+        action_choice = q_table.loc['RSI<25'].idxmax(axis=1)
+        print('chosen based on q_value ', action_choice)
+    return action_choice
+
+# At EOD of the trading day, calculate the reward of the action taken at the beginnning of the day
 def get_reward(df, i, j):
 
     if df[df.index==i]['detrended_price_adj'].values[0] > df[df.index==j]['detrended_price_adj'].values[0]:
         return 1
-    elif df[df.index==i]['detrended_price_adj'].values[0] > df[df.index==j]['detrended_price_adj'].values[0]:
+    elif df[df.index==i]['detrended_price_adj'].values[0] == df[df.index==j]['detrended_price_adj'].values[0]:
         return 0
     else:
         return -1
-            
-#    
-#for i in df.index[1:10]:
-#    j = i-1
-#    print(get_reward(df, i, j))
-#        
+
+q_table = state_action_pair()
+q_table = q_table.set_index('states')    
+
+ALPHA = 0.8
+GAMMA = 0.5
+
+pd.options.display.float_format = '{:.4f}'.format
+
+for i in range(1,249):
+
+    j = i-1
     
-def update_q_values():
-    """
-    A function that updates the q values using the bellman equation and replaces the q_0 from the initial q-table
-    """
-        
+    reward = get_reward(df, i, j)
+    
+    rsi_state = get_current_state(df, i)
+    print('the state is ', rsi_state)
+    
+    action_choice = choose_action(q_table, rsi_state)
+    
+    old_q_value = q_table.loc[rsi_state,action_choice]
+    print('old q_value is ', old_q_value)
+    
+    new_q_value = old_q_value + ALPHA*(reward + GAMMA*old_q_value)
+    print('new q_value is ', new_q_value)
+    
+    q_table.loc[rsi_state, action_choice] = new_q_value
+    print(q_table)
+    
+    print('--------------------------------------------')
+    
+    
