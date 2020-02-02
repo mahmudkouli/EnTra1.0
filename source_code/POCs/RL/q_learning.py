@@ -2,7 +2,7 @@ import pandas as pd
 import datetime
 from sklearn.linear_model import LinearRegression
 from matplotlib import pyplot
-import numpy
+import numpy as np
 import random
  
 
@@ -52,7 +52,7 @@ series = series.reset_index()
 # fit linear model
 
 X = [i for i in range(0, len(series))]
-X = numpy.reshape(X, (len(X), 1))
+X = np.reshape(X, (len(X), 1))
 y = series.Close
 model = LinearRegression()
 model.fit(X, y)
@@ -80,7 +80,7 @@ df.plot('Date', ['detrended_price_adj','RSI']) # correlation makes sense still
 df.plot('Date', ['detrended_price_adj','Close']) # comparing the detrended adjusted price to the closing price
 
 # limit the df to work with manageable dataset for debugging
-df = df.iloc[15:265].reset_index()
+df = df.iloc[15:365].reset_index()
 
 """DONE"""
 ## clean up the code above to spit out clean data that the RL agent can work with
@@ -91,15 +91,17 @@ df = df.iloc[15:265].reset_index()
 ## define a function that lets the agent choose an action
 ## define the q-matrix and how to calculate it
 ## define the update the method 
+## add exploration vs. exploitation rate instead of randomly choosing at step 1 then basing off q-value
+## add more states based on other indicators (added MACD)
 
 """TO BE COMPLETED"""
 ## change reward function from -1, 0 and 1 to a different measure
-## add more states based on other indicators
-## add exploration vs. exploitation rate instead of randomly choosing at step 1 then basing off q-value
+## add even more states based on other indicators
 
 def state_action_pair():
 
-    states = ['RSI<25', 'RSI<50','RSI<75', 'RSI<100']
+    states = ['RSI<25 & MACD < 0', 'RSI<50 & MACD < 0', 'RSI<75 & MACD < 0', 'RSI<100 & MACD < 0',
+              'RSI<25 & MACD > 0', 'RSI<50 & MACD > 0', 'RSI<75 & MACD > 0', 'RSI<100 & MACD > 0']
     
     q_table = pd.DataFrame(states).rename(columns={0:'states'})
     
@@ -112,34 +114,61 @@ q_table = q_table.set_index('states')
 
 def get_current_state(df, i):
     rsi = df.iloc[i]['RSI']
+    macd = df.iloc[i]['macd_diff_signal']
 
-    if rsi < 25:
-        rsi_state = 'RSI<25'
-    elif rsi < 50:
-        rsi_state = 'RSI<50'
-    elif rsi < 75:
-        rsi_state = 'RSI<75'
-    elif rsi < 100:
-        rsi_state = 'RSI<100'
+    # RSI changes, macd is fixed
+    if rsi < 25 and macd < 0:
+        rsi_state = 'RSI<25 & MACD < 0'
+    elif rsi < 50 and macd < 0:
+        rsi_state = 'RSI<50 & MACD < 0'
+    elif rsi < 75 and macd < 0:
+        rsi_state = 'RSI<75 & MACD < 0'
+    elif rsi < 100 and macd < 0:
+        rsi_state = 'RSI<100 & MACD < 0'
+
+    # MACD changes, RSI is fixed
+    if rsi < 25 and macd > 0:
+        rsi_state = 'RSI<25 & MACD > 0'
+    elif rsi < 50 and macd > 0:
+        rsi_state = 'RSI<50 & MACD > 0'
+    elif rsi < 75 and macd > 0:
+        rsi_state = 'RSI<75 & MACD > 0'
+    elif rsi < 100 and macd > 0:
+        rsi_state = 'RSI<100 & MACD > 0'
     else:
         print('rsi unknown')
-    
+        
     return rsi_state
 
-def exploration_vs_exploitation():
-    """Will return whether the agent exploits the q-table or explores new actions at this step"""
+# dummy function, using a linear decision between exploration vs. exploration for now
+def decaying_exploration_rate(rsi_state):
+    
+    epsilon = 0.9
+    decay = 0.99
+    min_epsilon = 0.1
+    for i in range(0,10):
+        epsilon = max(min_epsilon, epsilon*decay)    
     
     return None
 
+
 def choose_action(q_table, rsi_state):
     
+    # at first iteration, always randomly pick an action
     if q_table.loc[rsi_state]['B']==q_table.loc[rsi_state]['H']==q_table.loc[rsi_state]['S']:
         action_choice = random.choice(['B','H','S'])
         print('chosen randomly ', action_choice)
-
+        
+    # at any subsequent iteration, either explore (with p = eps) or exploit highest q-value (with p=1-eps)
     else:
-        action_choice = q_table.loc['RSI<25'].idxmax(axis=1)
-        print('chosen based on q_value ', action_choice)
+        epsilon = 0.5
+        random_ = random.uniform(0,1)
+        if  random_ > epsilon:
+            action_choice = random.choice(['B','H','S'])
+            print('action ', action_choice, ' chosen randomly, random prob: ', random_, ' epsilon: ', epsilon)
+        else:
+            action_choice = q_table.loc[rsi_state].idxmax(axis=1)
+            print('action ', action_choice, ' chosen based on q-value, random prob: ', random_, ' epsilon: ', epsilon)
     return action_choice
 
 # At EOD of the trading day, calculate the reward of the action taken at the beginnning of the day
@@ -160,7 +189,7 @@ GAMMA = 0.5
 
 pd.options.display.float_format = '{:.4f}'.format
 
-for i in range(1,249):
+for i in range(1,349):
 
     j = i-1
     
@@ -181,5 +210,4 @@ for i in range(1,249):
     print(q_table)
     
     print('--------------------------------------------')
-    
     
