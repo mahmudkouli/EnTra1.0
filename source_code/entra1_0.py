@@ -130,7 +130,7 @@ def main():
         
     stocks = pd.read_excel('../unit_test/ticker_data.xlsx')
 
-    for i in stocks[stocks['Industry']!='Precious Metals']['Ticker']:
+    for i in stocks[stocks['Industry']!='Mining']['Symbol2']:
         print('evaluating stock, ', i)
         try:
             df = get_stock_data(i, connection)
@@ -143,7 +143,7 @@ def main():
             
             modified_data_to_send = data_to_send(df, stocks)
             stacked_data_to_send = stacked_data_to_send.append(modified_data_to_send)
-            stacked_data_to_send['Date'] = stacked_data_to_send.index
+#            stacked_data_to_send['Date'] = stacked_data_to_send.index
 
         except:
             print(str(i), ' encountered error, moving to next stock')
