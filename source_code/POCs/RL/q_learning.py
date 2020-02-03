@@ -80,7 +80,7 @@ df.plot('Date', ['detrended_price_adj','RSI']) # correlation makes sense still
 df.plot('Date', ['detrended_price_adj','Close']) # comparing the detrended adjusted price to the closing price
 
 # limit the df to work with manageable dataset for debugging
-df = df.iloc[15:365].reset_index()
+df = df.iloc[15:1071].reset_index()
 
 """DONE"""
 ## clean up the code above to spit out clean data that the RL agent can work with
@@ -93,10 +93,17 @@ df = df.iloc[15:365].reset_index()
 ## define the update the method 
 ## add exploration vs. exploitation rate instead of randomly choosing at step 1 then basing off q-value
 ## add more states based on other indicators (added MACD)
+## record the actions and plot out how it would look like in terms of $$ gains
+## change reward function from -1, 0 and 1 to delta of today_price- yesterday_price
 
 """TO BE COMPLETED"""
-## change reward function from -1, 0 and 1 to a different measure
+## add a decaying exploration function
+## double check the reward and q_value calculation to make sure it works as intended
 ## add even more states based on other indicators
+    # add MACD movement direction (if MACD,t=0 < avg(MACD,t={-3:-1}), then MACD movement direction is down)
+    # add RSI movement direction (similar to MACD movement calculation above)
+## add contraints (cant sell if there is no stock in holding)    
+
 
 def state_action_pair():
 
@@ -151,35 +158,40 @@ def decaying_exploration_rate(rsi_state):
     
     return None
 
-
 def choose_action(q_table, rsi_state):
     
     # at first iteration, always randomly pick an action
     if q_table.loc[rsi_state]['B']==q_table.loc[rsi_state]['H']==q_table.loc[rsi_state]['S']:
         action_choice = random.choice(['B','H','S'])
         print('chosen randomly ', action_choice)
+        action_choice_type = '1st run, random'
         
     # at any subsequent iteration, either explore (with p = eps) or exploit highest q-value (with p=1-eps)
     else:
-        epsilon = 0.5
+        epsilon = 0.1
         random_ = random.uniform(0,1)
-        if  random_ > epsilon:
+        if  random_ < epsilon:
             action_choice = random.choice(['B','H','S'])
+            action_choice_type = 'random, not 1st run'
             print('action ', action_choice, ' chosen randomly, random prob: ', random_, ' epsilon: ', epsilon)
+        
         else:
             action_choice = q_table.loc[rsi_state].idxmax(axis=1)
+            action_choice_type = ' q_value based'
             print('action ', action_choice, ' chosen based on q-value, random prob: ', random_, ' epsilon: ', epsilon)
-    return action_choice
+    return action_choice, action_choice_type
 
 # At EOD of the trading day, calculate the reward of the action taken at the beginnning of the day
 def get_reward(df, i, j):
-
-    if df[df.index==i]['detrended_price_adj'].values[0] > df[df.index==j]['detrended_price_adj'].values[0]:
-        return 1
-    elif df[df.index==i]['detrended_price_adj'].values[0] == df[df.index==j]['detrended_price_adj'].values[0]:
+    recent_price = df[df.index==i]['detrended_price_adj'].values[0]
+    old_price = df[df.index==j]['detrended_price_adj'].values[0]
+    
+    if recent_price > old_price:
+        return recent_price - old_price
+    elif recent_price == old_price:
         return 0
-    else:
-        return -1
+    elif recent_price < old_price:
+        return recent_price - old_price
 
 q_table = state_action_pair()
 q_table = q_table.set_index('states')    
@@ -188,17 +200,21 @@ ALPHA = 0.8
 GAMMA = 0.5
 
 pd.options.display.float_format = '{:.4f}'.format
+pd.set_option('display.max_columns', 500)
 
-for i in range(1,349):
+historical_action_table = pd.DataFrame(columns={'date', 'state', 'action', 'reward', 
+                                                'price', 'action_choice'})
+
+for i in range(1,1055):
 
     j = i-1
     
     reward = get_reward(df, i, j)
-    
+
     rsi_state = get_current_state(df, i)
     print('the state is ', rsi_state)
     
-    action_choice = choose_action(q_table, rsi_state)
+    action_choice, action_choice_type = choose_action(q_table, rsi_state)
     
     old_q_value = q_table.loc[rsi_state,action_choice]
     print('old q_value is ', old_q_value)
@@ -209,5 +225,11 @@ for i in range(1,349):
     q_table.loc[rsi_state, action_choice] = new_q_value
     print(q_table)
     
+    # fill in the historical action table analysis at a later time
+    historical_action_table = historical_action_table.append({'date':str(df[df.index==i]['Date'].values[0])[:10],
+                                                              'state':rsi_state, 'action':action_choice,
+                                                              'reward':reward, 'price':df[df.index==i]['Close'].values[0],
+                                                              'action_choice':action_choice_type}, ignore_index=True)
+
     print('--------------------------------------------')
     
