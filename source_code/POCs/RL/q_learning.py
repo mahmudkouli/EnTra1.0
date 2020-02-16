@@ -98,6 +98,7 @@ df = df.iloc[15:1071].reset_index()
 
 """TO BE COMPLETED"""
 ## add a decaying exploration function
+    # when exploring, choose any action that is not highest q-value
 ## double check the reward and q_value calculation to make sure it works as intended
 ## add even more states based on other indicators
     # add MACD movement direction (if MACD,t=0 < avg(MACD,t={-3:-1}), then MACD movement direction is down)
@@ -158,7 +159,7 @@ def decaying_exploration_rate(rsi_state):
     
     return None
 
-def choose_action(q_table, rsi_state):
+def choose_action(q_table, rsi_state, epsilon):
     
     # at first iteration, always randomly pick an action
     if q_table.loc[rsi_state]['B']==q_table.loc[rsi_state]['H']==q_table.loc[rsi_state]['S']:
@@ -168,11 +169,13 @@ def choose_action(q_table, rsi_state):
         
     # at any subsequent iteration, either explore (with p = eps) or exploit highest q-value (with p=1-eps)
     else:
-        epsilon = 0.1
         random_ = random.uniform(0,1)
         if  random_ < epsilon:
-            action_choice = random.choice(['B','H','S'])
-            action_choice_type = 'random, not 1st run'
+            max_value_choice = q_table.loc[rsi_state].idxmax(axis=1)
+            action_list = ['B','H','S']
+            refined_action_list = [value for value in action_list if value != max_value_choice]
+            action_choice = random.choice(refined_action_list)
+            action_choice_type = 'exploring, not 1st run'
             print('action ', action_choice, ' chosen randomly, random prob: ', random_, ' epsilon: ', epsilon)
         
         else:
@@ -180,6 +183,7 @@ def choose_action(q_table, rsi_state):
             action_choice_type = ' q_value based'
             print('action ', action_choice, ' chosen based on q-value, random prob: ', random_, ' epsilon: ', epsilon)
     return action_choice, action_choice_type
+
 
 # At EOD of the trading day, calculate the reward of the action taken at the beginnning of the day
 def get_reward(df, i, j):
@@ -203,18 +207,25 @@ pd.options.display.float_format = '{:.4f}'.format
 pd.set_option('display.max_columns', 500)
 
 historical_action_table = pd.DataFrame(columns={'date', 'state', 'action', 'reward', 
-                                                'price', 'action_choice'})
+                                                'price', 'action_choice', 'epsilon'})
 
+eps = 0.9
+    
 for i in range(1,1055):
-
+    
     j = i-1
+    
+    eps = eps*0.999
+
+    if eps < 0.1:
+        eps = 0.1
     
     reward = get_reward(df, i, j)
 
     rsi_state = get_current_state(df, i)
     print('the state is ', rsi_state)
     
-    action_choice, action_choice_type = choose_action(q_table, rsi_state)
+    action_choice, action_choice_type = choose_action(q_table, rsi_state, eps)
     
     old_q_value = q_table.loc[rsi_state,action_choice]
     print('old q_value is ', old_q_value)
@@ -229,7 +240,11 @@ for i in range(1,1055):
     historical_action_table = historical_action_table.append({'date':str(df[df.index==i]['Date'].values[0])[:10],
                                                               'state':rsi_state, 'action':action_choice,
                                                               'reward':reward, 'price':df[df.index==i]['Close'].values[0],
-                                                              'action_choice':action_choice_type}, ignore_index=True)
+                                                              'action_choice':action_choice_type, 'epsilon':eps}, 
+                                                                ignore_index=True)
 
     print('--------------------------------------------')
+    
+
+
     
