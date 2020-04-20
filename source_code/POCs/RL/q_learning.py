@@ -80,7 +80,7 @@ df.plot('Date', ['detrended_price_adj','RSI']) # correlation makes sense still
 df.plot('Date', ['detrended_price_adj','Close']) # comparing the detrended adjusted price to the closing price
 
 # limit the df to work with manageable dataset for debugging
-df = df.iloc[15:1071].reset_index()
+df = df.iloc[15:].reset_index()
 
 """DONE"""
 ## clean up the code above to spit out clean data that the RL agent can work with
@@ -95,15 +95,16 @@ df = df.iloc[15:1071].reset_index()
 ## add more states based on other indicators (added MACD)
 ## record the actions and plot out how it would look like in terms of $$ gains
 ## change reward function from -1, 0 and 1 to delta of today_price- yesterday_price
-
-"""TO BE COMPLETED"""
 ## add a decaying exploration function
     # when exploring, choose any action that is not highest q-value
+
+"""TO BE COMPLETED"""
 ## double check the reward and q_value calculation to make sure it works as intended
 ## add even more states based on other indicators
     # add MACD movement direction (if MACD,t=0 < avg(MACD,t={-3:-1}), then MACD movement direction is down)
     # add RSI movement direction (similar to MACD movement calculation above)
 ## add contraints (cant sell if there is no stock in holding)    
+## review the q_update calculation, potentially change it
 
 
 def state_action_pair():
@@ -116,9 +117,6 @@ def state_action_pair():
     q_table['B'],q_table['S'],q_table['H'] = 0,0,0
 
     return q_table
-
-q_table = state_action_pair()
-q_table = q_table.set_index('states')    
 
 def get_current_state(df, i):
     rsi = df.iloc[i]['RSI']
@@ -148,17 +146,6 @@ def get_current_state(df, i):
         
     return rsi_state
 
-# dummy function, using a linear decision between exploration vs. exploration for now
-def decaying_exploration_rate(rsi_state):
-    
-    epsilon = 0.9
-    decay = 0.99
-    min_epsilon = 0.1
-    for i in range(0,10):
-        epsilon = max(min_epsilon, epsilon*decay)    
-    
-    return None
-
 def choose_action(q_table, rsi_state, epsilon):
     
     # at first iteration, always randomly pick an action
@@ -184,7 +171,6 @@ def choose_action(q_table, rsi_state, epsilon):
             print('action ', action_choice, ' chosen based on q-value, random prob: ', random_, ' epsilon: ', epsilon)
     return action_choice, action_choice_type
 
-
 # At EOD of the trading day, calculate the reward of the action taken at the beginnning of the day
 def get_reward(df, i, j):
     recent_price = df[df.index==i]['detrended_price_adj'].values[0]
@@ -196,6 +182,31 @@ def get_reward(df, i, j):
         return 0
     elif recent_price < old_price:
         return recent_price - old_price
+
+## function creates a table with default value of 0.9 for epsilon for each state specified in the q_table
+def decaying_epsilon_table(q_table):
+    
+    states = list(q_table.index)  
+    decay_eps_table = pd.DataFrame(states).rename(columns={0:'states'})  
+    decay_eps_table['decaying eps'] = 0.90
+    
+    return decay_eps_table
+
+## function renders the most recent decayed epsilon rate for a given state and its row index
+def get_decaying_eps_rate(rsi_state, decay_eps_table):
+    
+    current_eps = decay_eps_table[decay_eps_table['states']==rsi_state]['decaying eps'].values[0]
+    current_eps_index = decay_eps_table.index[decay_eps_table['states']==rsi_state][0]
+    
+    return current_eps, current_eps_index
+
+## function updates the given current epsilon value by multiplying by 0.999 therefore gradually decreasing it to ensure 
+## adequate exposure to different environments for each pre-specified state
+def update_decaying_eps_rate(current_eps, current_eps_index, decay_eps_table):
+    decay_eps_table.at[current_eps_index, 'decaying eps'] = current_eps*0.975
+    
+    return decay_eps_table
+
 
 q_table = state_action_pair()
 q_table = q_table.set_index('states')    
@@ -209,23 +220,26 @@ pd.set_option('display.max_columns', 500)
 historical_action_table = pd.DataFrame(columns={'date', 'state', 'action', 'reward', 
                                                 'price', 'action_choice', 'epsilon'})
 
-eps = 0.9
+decay_eps_table = decaying_epsilon_table(q_table)
     
-for i in range(1,1055):
+for i in range(1,1256):
     
     j = i-1
-    
-    eps = eps*0.999
-
-    if eps < 0.1:
-        eps = 0.1
-    
+        
     reward = get_reward(df, i, j)
 
     rsi_state = get_current_state(df, i)
     print('the state is ', rsi_state)
     
-    action_choice, action_choice_type = choose_action(q_table, rsi_state, eps)
+    current_eps, current_eps_index = get_decaying_eps_rate(rsi_state, decay_eps_table)
+    
+    print(current_eps, current_eps_index)
+    
+    update_decaying_eps_rate(current_eps, current_eps_index, decay_eps_table)
+    
+    print(decay_eps_table)
+
+    action_choice, action_choice_type = choose_action(q_table, rsi_state, current_eps)
     
     old_q_value = q_table.loc[rsi_state,action_choice]
     print('old q_value is ', old_q_value)
@@ -240,11 +254,16 @@ for i in range(1,1055):
     historical_action_table = historical_action_table.append({'date':str(df[df.index==i]['Date'].values[0])[:10],
                                                               'state':rsi_state, 'action':action_choice,
                                                               'reward':reward, 'price':df[df.index==i]['Close'].values[0],
-                                                              'action_choice':action_choice_type, 'epsilon':eps}, 
+                                                              'action_choice':action_choice_type, 'epsilon':current_eps}, 
                                                                 ignore_index=True)
 
     print('--------------------------------------------')
     
 
 
-    
+
+
+
+
+
+
